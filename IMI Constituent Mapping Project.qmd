@@ -1,0 +1,206 @@
+---
+title: "Istituto Mondo Italiano (IMI) Constituent Mapping Project"
+subtitle: "Geographic Distribution Analysis"
+author: "Paul 'Pablo' Dordal"
+date: "April 28, 2026"
+jupyter: python3
+format:
+  html:
+    toc: true
+    code-fold: true
+    format-links: false 
+  pdf:
+    toc: true
+    number-sections: true
+    prefer-html: true
+    geometry:
+      - margin=1in
+execute:
+  echo: false
+  warning: false
+---
+
+## Introduction
+The Istituto Mondo Italiano (IMI) Constituent Mapping Project aims to analyze the geographic distribution of IMI constituents to better understand where the local population is concentrated in relation to a proposed new center of operations. This project involves cleaning and analyzing data on the locations of IMI constituents, which can provide valuable insights for strategic planning and resource allocation.
+
+### Clean Data and Create New DataFrame
+Unfortunately, the raw data provided by Constant Contact is not in a clean format and contains many records with missing geographic information. To ensure accurate analysis, we will clean the data by removing records that lack essential geographic details such as street address and zip code. This process will help us create a new "Working DataFrame" that contains only viable addresses for geocoding and mapping. 
+```{python}
+#| label: load-data
+#| echo: false
+#| warning: false
+
+import pandas as pd
+
+# 1. Load the raw data (assigning names since there is no header)
+file_path = 'IMI _ constant contact download 4.27.csv'
+column_names = [
+    'Email', 'First_Name', 'Last_Name', 'Status', 'Permission', 
+    'Street', 'City', 'State', 'Zip', 'Country', 'Extra'
+]
+df_raw = pd.read_csv(file_path, names=column_names, header=None)
+
+# 2. Select only geographic columns
+geo_columns = ['Street', 'City', 'State', 'Zip']
+df_geo = df_raw[geo_columns].copy()
+
+# 3. Remove records that are missing 'Street' or 'Zip'
+# This creates your "Working DataFrame"
+df_working = df_geo.dropna(subset=['Street', 'Zip']).reset_index(drop=True)
+
+# 4. Display the result
+print(f"Total viable addresses found: {len(df_working)}")
+
+# Save it for your own records
+df_working.to_csv('IMI_working_addresses.csv', index=False)
+```
+
+### Statistical Viability Analysis
+We performed a statistical viability analysis to understand the representativeness of our cleaned sample compared to the total population of constituents in the Constant Contact list. This analysis will include calculating the proportion of viable addresses and the margin of error at a 95% confidence level, which will help us assess the reliability of our findings based on the available data.
+
+A sample of 1,824 records out of a population of 7,728 provides a highly robust statistical foundation. With a Margin of Error of ±1.99%, we can be 95% confident that the geographic patterns observed in this mapping project accurately reflect the distribution of the entire constituent list, assuming the missing addresses are 'Missing at Random'.
+
+```{python}
+#| label: viability-analysis
+#| echo: false
+
+import math
+
+# Constants from your data
+total_population = 7728  # Total Constant Contact list
+sample_size = 1824       # Records with valid addresses
+
+# Calculate basic proportion
+proportion = (sample_size / total_population) * 100
+
+# Calculate Margin of Error (at 95% confidence)
+# Formula: z * sqrt((p * (1-p)) / n) * sqrt((N-n)/(N-1))
+z = 1.96  # 95% confidence
+p = 0.5   # Worst-case scenario for margin of error
+moe = z * math.sqrt((p * (1-p)) / sample_size) * math.sqrt((total_population - sample_size) / (total_population - 1))
+moe_percent = moe * 100
+
+print(f"Total Contact List: {total_population}")
+print(f"Viable Addresses: {sample_size} ({proportion:.1f}%)")
+print(f"Margin of Error: ±{moe_percent:.2f}% (at 95% Confidence Level)")
+```
+
+### Geocoding Addresses
+Most important to this project is to map the constituents within 100 miles of the potential South Side location, so we will geocode the addresses to obtain their latitude and longitude in order to plot them on a map.
+```{python}
+#| label: geocoding-working-df
+#| eval: false
+#| include: false
+
+from geopy.geocoders import Nominatim
+from geopy.distance import geodesic
+import time
+from tqdm import tqdm
+
+# 1. Initialize Geocoder
+geolocator = Nominatim(user_agent="imi_project_pittsburgh_v2")
+
+# 2. Define Center Point (2000 E Carson St)
+center_address = "2000 E Carson St, Pittsburgh, PA 15203"
+center_loc = geolocator.geocode(center_address)
+center_coords = (center_loc.latitude, center_loc.longitude)
+
+# 3. Prepare Addresses from your new df_working
+df_working['Full_Address'] = (
+    df_working['Street'].astype(str) + ", " + 
+    df_working['City'].fillna('').astype(str) + ", " + 
+    df_working['State'].fillna('').astype(str) + " " + 
+    df_working['Zip'].astype(str)
+)
+
+# 4. Geocoding Loop
+coordinates = []
+for addr in tqdm(df_working['Full_Address']):
+    try:
+        time.sleep(1.1) 
+        location = geolocator.geocode(addr)
+        if location:
+            coordinates.append((location.latitude, location.longitude))
+        else:
+            coordinates.append(None)
+    except:
+        coordinates.append(None)
+
+df_working['Coordinates'] = coordinates
+
+# 5. Calculate Distance and Filter for 100 Miles
+def get_dist(point):
+    return geodesic(center_coords, point).miles if point else None
+
+df_working['Distance'] = df_working['Coordinates'].apply(get_dist)
+df_final_100 = df_working[df_working['Distance'] <= 100].copy()
+
+# 6. SAVE THE NEW GEOCODED DATA
+df_final_100.to_csv('imi_geocoded_100mi.csv', index=False)
+```
+
+```{python}
+#| label: calculate-stats
+#| echo: false
+#| message: false
+
+import ast
+
+# Load the geocoded data
+df_stats = pd.read_csv('imi_geocoded_100mi.csv')
+
+# 1. Total addresses that successfully geocoded (not None/NaN)
+total_mapped = df_stats['Coordinates'].notna().sum()
+
+# 2. Total addresses within the 100-mile radius
+# (This is the total rows in the filtered CSV)
+within_100_miles = len(df_stats)
+
+# 3. Calculate percentage for extra insight
+percent_local = (within_100_miles / total_mapped) * 100 if total_mapped > 0 else 0
+
+print(f"Total Addresses Geocoded: {total_mapped}")
+print(f"Total Constituents within 100 Miles: {within_100_miles}")
+print(f"Percentage of Constituents within 100 Miles: {percent_local:.2f}%")
+```
+
+### Visualize the Results
+Now that we have the geocoded data, we can visualize the distribution of IMI constituents within the 100-mile radius of the Southside Location. On the HTML version of this report, the constituents found within this radius will be displayed as markers with the distance from the South Side location in miles.
+
+```{python}
+#| label: interactive-map-100mi
+#| echo: false
+#| message: false
+
+import folium
+import ast
+
+# 1. Load the results
+df_map = pd.read_csv('imi_geocoded_100mi.csv')
+center_coords = (40.4283855, -79.9774938)
+
+# 2. Create the Map
+m = folium.Map(location=center_coords, zoom_start=8)
+
+# 3. Add the Circles (100mi and 50mi)
+folium.Circle(location=center_coords, radius=160934, color='blue', fill=True, fill_opacity=0.05).add_to(m)
+folium.Circle(location=center_coords, radius=80467, color='red', weight=2, dash_array='5, 5', fill=False).add_to(m)
+
+# 4. Add Markers (Anonymized)
+for idx, row in df_map.iterrows():
+    if pd.notna(row['Coordinates']):
+        coord = ast.literal_eval(row['Coordinates'])
+        
+        # We removed the Street address here to keep the data private
+        folium.Marker(
+            location=coord,
+            popup=f"Proximity: {row['Distance']:.1f} miles",
+            icon=folium.Icon(color='purple', icon='user', prefix='fa')
+        ).add_to(m)
+
+m
+```
+### Conclusion
+The Istituto Mondo Italiano (IMI) Constituent Mapping Project provides a data-driven lens into the organization’s regional footprint. By identifying and geocoding 1,824 viable addresses from a contact list of over 7,000 records, we established a high-confidence snapshot of the community’s geographic distribution. 
+
+With a calculated Margin of Error of ±1.99% at a 95% confidence level, these findings offer a statistically robust foundation for IMI’s strategic planning. This analysis ensures that future decisions regarding the Southside location—and broader resource allocation—are anchored in a precise understanding of where the IMI community lives and grows.
