@@ -32,6 +32,7 @@ Unfortunately, the raw data provided by Constant Contact is not in a clean forma
 
 import pandas as pd
 
+'''
 # 1. Load the raw data (assigning names since there is no header)
 file_path = 'IMI _ constant contact download 4.27.csv'
 column_names = [
@@ -53,6 +54,7 @@ print(f"Total viable addresses found: {len(df_working)}")
 
 # Save it for your own records
 df_working.to_csv('IMI_working_addresses.csv', index=False)
+'''
 ```
 
 ### Statistical Viability Analysis
@@ -147,7 +149,7 @@ df_final_100.to_csv('imi_geocoded_100mi.csv', index=False)
 import ast
 
 # Load the geocoded data
-df_stats = pd.read_csv('imi_geocoded_100mi.csv')
+df_stats = pd.read_csv('https://raw.githubusercontent.com/pauldordal/imi_constituent_mapping_project/main/imi_geocoded_100mi.csv')
 
 # 1. Total addresses that successfully geocoded (not None/NaN)
 total_mapped = df_stats['Coordinates'].notna().sum()
@@ -176,7 +178,7 @@ import folium
 import ast
 
 # 1. Load the results
-df_map = pd.read_csv('imi_geocoded_100mi.csv')
+df_map = pd.read_csv('https://raw.githubusercontent.com/pauldordal/imi_constituent_mapping_project/main/imi_geocoded_100mi.csv')
 center_coords = (40.4283855, -79.9774938)
 
 # 2. Create the Map
