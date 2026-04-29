@@ -23,39 +23,8 @@ execute:
 ## Introduction
 The Istituto Mondo Italiano (IMI) Constituent Mapping Project aims to analyze the geographic distribution of IMI constituents to better understand where the local population is concentrated in relation to a proposed new center of operations. This project involves cleaning and analyzing data on the locations of IMI constituents, which can provide valuable insights for strategic planning and resource allocation.
 
-### Clean Data and Create New DataFrame
-Unfortunately, the raw data provided by Constant Contact is not in a clean format and contains many records with missing geographic information. To ensure accurate analysis, we will clean the data by removing records that lack essential geographic details such as street address and zip code. This process will help us create a new "Working DataFrame" that contains only viable addresses for geocoding and mapping. 
-```{python}
-#| label: load-data
-#| echo: false
-#| warning: false
-
-import pandas as pd
-
-'''
-# 1. Load the raw data (assigning names since there is no header)
-file_path = 'IMI _ constant contact download 4.27.csv'
-column_names = [
-    'Email', 'First_Name', 'Last_Name', 'Status', 'Permission', 
-    'Street', 'City', 'State', 'Zip', 'Country', 'Extra'
-]
-df_raw = pd.read_csv(file_path, names=column_names, header=None)
-
-# 2. Select only geographic columns
-geo_columns = ['Street', 'City', 'State', 'Zip']
-df_geo = df_raw[geo_columns].copy()
-
-# 3. Remove records that are missing 'Street' or 'Zip'
-# This creates your "Working DataFrame"
-df_working = df_geo.dropna(subset=['Street', 'Zip']).reset_index(drop=True)
-
-# 4. Display the result
-print(f"Total viable addresses found: {len(df_working)}")
-
-# Save it for your own records
-df_working.to_csv('IMI_working_addresses.csv', index=False)
-'''
-```
+### Data Overview
+This analysis is based on constituent data exported from IMI's Constant Contact account. Records were screened to include only those with complete geographic information, resulting in a verified set of addresses suitable for mapping and distance analysis. All addresses were geocoded prior to this report, and constituents located within a 100-mile radius of IMI's headquarters in Pittsburgh are included in the analysis below.
 
 ### Statistical Viability Analysis
 We performed a statistical viability analysis to understand the representativeness of our cleaned sample compared to the total population of constituents in the Constant Contact list. This analysis will include calculating the proportion of viable addresses and the margin of error at a 95% confidence level, which will help us assess the reliability of our findings based on the available data.
@@ -65,7 +34,7 @@ A sample of 1,824 records out of a population of 7,728 provides a highly robust 
 ```{python}
 #| label: viability-analysis
 #| echo: false
-
+import pandas as pd
 import math
 
 # Constants from your data
