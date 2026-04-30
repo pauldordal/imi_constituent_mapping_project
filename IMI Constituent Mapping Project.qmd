@@ -191,7 +191,7 @@ old_coords = (40.4231, -79.8895) # Swissvale (Charleston Ave)
 new_coords = (40.4284, -79.9775) # South Side (E Carson St)
 
 # 2. Load the 1,824 geocoded records
-df_impact = pd.read_csv('imi_geocoded_100mi.csv')
+df_impact = pd.read_csv('https://raw.githubusercontent.com/pauldordal/imi_constituent_mapping_project/main/imi_geocoded_100mi.csv')
 
 # 3. Calculate distances to both locations
 def calc_dist(coord_str, target):
