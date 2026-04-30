@@ -21,12 +21,15 @@ execute:
 ---
 
 ## Introduction
+
 The Istituto Mondo Italiano (IMI) Constituent Mapping Project aims to analyze the geographic distribution of IMI constituents to better understand where the local population is concentrated in relation to a proposed new center of operations. This project involves cleaning and analyzing data on the locations of IMI constituents, which can provide valuable insights for strategic planning and resource allocation.
 
 ### Data Overview
+
 This analysis is based on constituent data exported from IMI's Constant Contact account. Records were screened to include only those with complete geographic information, resulting in a verified set of addresses suitable for mapping and distance analysis. All addresses were geocoded prior to this report, and constituents located within a 100-mile radius of IMI's headquarters in Pittsburgh are included in the analysis below.
 
 ### Statistical Viability Analysis
+
 We performed a statistical viability analysis to understand the representativeness of our cleaned sample compared to the total population of constituents in the Constant Contact list. This analysis will include calculating the proportion of viable addresses and the margin of error at a 95% confidence level, which will help us assess the reliability of our findings based on the available data.
 
 A sample of 1,824 records out of a population of 7,728 provides a highly robust statistical foundation. With a Margin of Error of ±1.99%, we can be 95% confident that the geographic patterns observed in this mapping project accurately reflect the distribution of the entire constituent list, assuming the missing addresses are 'Missing at Random'.
@@ -57,7 +60,9 @@ print(f"Margin of Error: ±{moe_percent:.2f}% (at 95% Confidence Level)")
 ```
 
 ### Geocoding Addresses
+
 Most important to this project is to map the constituents within 100 miles of the potential South Side location, so we will geocode the addresses to obtain their latitude and longitude in order to plot them on a map.
+
 ```{python}
 #| label: geocoding-working-df
 #| eval: false
@@ -136,6 +141,7 @@ print(f"Percentage of Constituents within 100 Miles: {percent_local:.2f}%")
 ```
 
 ### Visualize the Results
+
 Now that we have the geocoded data, we can visualize the distribution of IMI constituents within the 100-mile radius of the Southside Location. On the HTML version of this report, the constituents found within this radius will be displayed as markers with the distance from the South Side location in miles.
 
 ```{python}
@@ -171,7 +177,58 @@ for idx, row in df_map.iterrows():
 
 m
 ```
-### Conclusion
-The Istituto Mondo Italiano (IMI) Constituent Mapping Project provides a data-driven lens into the organization’s regional footprint. By identifying and geocoding 1,824 viable addresses from a contact list of over 7,000 records, we established a high-confidence snapshot of the community’s geographic distribution. 
 
-With a calculated Margin of Error of ±1.99% at a 95% confidence level, these findings offer a statistically robust foundation for IMI’s strategic planning. This analysis ensures that future decisions regarding the Southside location—and broader resource allocation—are anchored in a precise understanding of where the IMI community lives and grows.
+```{python}
+#| label: strategic-impact-analysis
+#| echo: false
+
+from geopy.distance import geodesic
+import pandas as pd
+import ast
+
+# 1. Setup coordinates
+old_coords = (40.4231, -79.8895) # Swissvale (Charleston Ave)
+new_coords = (40.4284, -79.9775) # South Side (E Carson St)
+
+# 2. Load the 1,824 geocoded records
+df_impact = pd.read_csv('imi_geocoded_100mi.csv')
+
+# 3. Calculate distances to both locations
+def calc_dist(coord_str, target):
+    if pd.isna(coord_str): return None
+    return geodesic(target, ast.literal_eval(coord_str)).miles
+
+df_impact['Dist_Current'] = df_impact['Coordinates'].apply(lambda x: calc_dist(x, old_coords))
+df_impact['Dist_New'] = df_impact['Coordinates'].apply(lambda x: calc_dist(x, new_coords))
+
+# 4. Calculate the "Impact Delta"
+# Negative = Closer to the new location (Winner)
+# Positive = Further from the new location (Potential Risk)
+df_impact['Impact_Delta'] = df_impact['Dist_New'] - df_impact['Dist_Current']
+
+# Summary Stats
+avg_current = df_impact['Dist_Current'].mean()
+avg_new = df_impact['Dist_New'].mean()
+winners = len(df_impact[df_impact['Impact_Delta'] < 0])
+losers = len(df_impact[df_impact['Impact_Delta'] > 0])
+```
+
+## Net Accessibility
+
+"A move to the South Side move would represent a **`{python} f'{avg_new - avg_current:.2f}'` mile** net change in average constituent travel. Of the 723 constituents Geocoded, approximately **`{python} winners`** constituents will be closer to the new location, while **`{python} losers`** will see an increase in travel distance."
+
+```{python}
+#| label: zip-impact-table
+#| echo: false
+
+zip_summary = df_impact.groupby('Zip')['Impact_Delta'].mean().sort_values()
+print("Top 5 'Winner' Zip Codes (Now Closer):")
+print(zip_summary.head(5))
+
+print("\nTop 5 'At-Risk' Zip Codes (Now Further Away):")
+print(zip_summary.tail(5))
+```
+
+### Conclusion
+
+The Istituto Mondo Italiano (IMI) Constituent Mapping Project provides a data-driven lens into the organization’s regional footprint. By identifying and Geocoding 1,824 viable addresses from a contact list of over 7,000 records, we established a high-confidence snapshot of the community’s geographic distribution. With a calculated Margin of Error of ±1.99% at a 95% confidence level, these findings offer a statistically robust foundation for IMI’s strategic planning. This analysis ensures that future decisions regarding a move to the South Side location—and broader resource allocation—are anchored in a precise understanding of where the IMI community lives and travels.
